@@ -46,13 +46,22 @@ final class EditScanViewController: UIViewController {
     private var zoomGestureController: ZoomGestureController!
     
     private var quadViewWidthConstraint = NSLayoutConstraint()
+    
     private var quadViewHeightConstraint = NSLayoutConstraint()
+    
+    private var isCropScanScreen: Bool
+    
+    private var results: ImageScannerResults!
+    
+    var delegate: EditScanViewControllerDelegate?
     
     // MARK: - Life Cycle
     
-    init(image: UIImage, quad: Quadrilateral?, rotateImage: Bool = true) {
+    init(image: UIImage, quad: Quadrilateral?, rotateImage: Bool = true, isCropScanScreen: Bool? = false) {
+        print("quad \(String(describing: quad))")
         self.image = rotateImage ? image.applyingPortraitOrientation() : image
         self.quad = quad ?? EditScanViewController.defaultQuad(forImage: image)
+        self.isCropScanScreen = isCropScanScreen! 
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -65,14 +74,26 @@ final class EditScanViewController: UIViewController {
         
         setupViews()
         setupConstraints()
-        title = NSLocalizedString("wescan.edit.title", tableName: nil, bundle: Bundle(for: EditScanViewController.self), value: "Edit Scan", comment: "The title of the EditScanViewController")
+//        title = NSLocalizedString("wescan.edit.title", tableName: nil, bundle: Bundle(for: EditScanViewController.self), value: "Edit Scan", comment: "The title of the EditScanViewController")
+//        navigationItem.backBarButtonItem = UIBarButtonItem(title: "Retake", style: UIBarButtonItem.Style.plain, target: self, action: nil)
         navigationItem.rightBarButtonItem = nextButton
-        
         zoomGestureController = ZoomGestureController(image: image, quadView: quadView)
         
         let touchDown = UILongPressGestureRecognizer(target: zoomGestureController, action: #selector(zoomGestureController.handle(pan:)))
         touchDown.minimumPressDuration = 0
         view.addGestureRecognizer(touchDown)
+        if isCropScanScreen {
+            navigationController?.setNavigationBarHidden(true, animated: false)
+            let cancelButton = UIBarButtonItem(title: "Cancel", style: UIBarButtonItem.Style.plain, target: self, action: #selector(cancelButtonAction))
+            let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: self, action: #selector(doneButtonAction))
+            let flexbileSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+            DispatchQueue.main.async {
+                self.navigationController!.setToolbarHidden(false, animated: false)
+                self.navigationController!.toolbar.items = [cancelButton,flexbileSpace, doneButton]
+            }
+            
+        }
+        
     }
     
     override func viewDidLayoutSubviews() {
@@ -120,6 +141,12 @@ final class EditScanViewController: UIViewController {
     // MARK: - Actions
     
     @objc func pushReviewController() {
+        comfirmUpdate()
+        let reviewViewController = ReviewViewController(results: results)
+        navigationController?.pushViewController(reviewViewController, animated: true)
+    }
+    
+    private func comfirmUpdate() {
         guard let quad = quadView.quad,
             let ciImage = CIImage(image: image) else {
                 if let imageScannerController = navigationController as? ImageScannerController {
@@ -155,10 +182,18 @@ final class EditScanViewController: UIViewController {
         
         let finalImage = uiImage.withFixedOrientation()
         
-        let results = ImageScannerResults(originalImage: image, scannedImage: finalImage, enhancedImage: enhancedImage, doesUserPreferEnhancedImage: false, detectedRectangle: scaledQuad)
-        let reviewViewController = ReviewViewController(results: results)
-        
-        navigationController?.pushViewController(reviewViewController, animated: true)
+        results = ImageScannerResults(originalImage: image, scannedImage: finalImage, enhancedImage: enhancedImage, doesUserPreferEnhancedImage: false, detectedRectangle: scaledQuad)
+       
+    }
+    
+    @objc private func cancelButtonAction() {
+        navigationController?.popViewController(animated: false)
+    }
+    
+    @objc private func doneButtonAction() {
+        comfirmUpdate()
+        delegate?.doneButtonResponse(result: results)
+        navigationController?.popViewController(animated: false)
     }
 
     private func displayQuad() {

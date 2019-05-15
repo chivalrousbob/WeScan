@@ -153,7 +153,8 @@ final class ReviewViewController: UIViewController {
         newResults.scannedImage = results.scannedImage.rotated(by: rotationAngle) ?? results.scannedImage
         newResults.enhancedImage = results.enhancedImage?.rotated(by: rotationAngle) ?? results.enhancedImage
         newResults.doesUserPreferEnhancedImage = isCurrentlyDisplayingEnhancedImage
-        imageScannerController.imageScannerDelegate?.imageScannerController(imageScannerController, didFinishScanningWithResults: newResults)
+        imageScannerController.imageScannerDelegate!.imageScannerController(imageScannerController, didFinishScanningWithResults: newResults)
+        navigationController?.popToRootViewController(animated: true)
     }
 
 }
